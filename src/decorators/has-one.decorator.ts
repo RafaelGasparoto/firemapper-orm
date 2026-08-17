@@ -4,7 +4,7 @@ import type { RelationOptions } from "../interfaces/relation-options.interface";
 
 /**
  * Declara que a chave estrangeira está na entidade RELACIONADA, apontando de
- * volta para a chave primária (ou `localKey`) desta entidade — o lado "1"
+ * volta para a chave primária (ou `localKey`) desta entidade
  * de um relacionamento 1:1.
  *
  * @param target     Função que retorna a classe da entidade relacionada.
