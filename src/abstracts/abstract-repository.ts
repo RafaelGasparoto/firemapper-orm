@@ -77,6 +77,22 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
     return this.mapRows(rows);
   }
 
+  /**
+   * Apaga e devolve as linhas removidas já mapeadas. `where` pode ser um id
+   * (deleta pela chave primária) ou uma lista de condições, igual ao `update`.
+   */
+  public async delete(
+    where: number | string | SqlCondition[],
+    transaction?: Transaction,
+  ): Promise<T[]> {
+    const { sql, params } = this.buildDeleteQuery(where);
+    const rows = await this.withTransaction(transaction, (tx) =>
+      tx.queryAsync(sql, params),
+    );
+
+    return this.mapRows(rows);
+  }
+
   /** Usa a transação recebida, ou abre uma nova se não vier nenhuma. */
   private withTransaction<R>(
     transaction: Transaction | undefined,
