@@ -7,6 +7,8 @@ export interface ColumnOptions {
   alias?: string;
   /** Tipo da coluna. Se omitido, é inferido do tipo TypeScript da propriedade (`design:type`). */
   type?: ColumnType;
+  /** Se a coluna aceita `NULL` no banco. Padrão: `false`. */
+  nullable?: boolean;
 }
 
 /** Metadados de uma coluna já resolvidos pelo decorator `@Column` — inclui a propriedade que a carrega. */
