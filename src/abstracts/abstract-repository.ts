@@ -27,6 +27,28 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
     return this.mapRows(rows);
   }
 
+  /**
+   * Roda uma SQL própria e mapeia o resultado pra instâncias de `T` — pra
+   * quando a query é complexa demais pra caber nas opções de `findAll`
+   * (subquery, GROUP BY, UNION...).
+   *
+   * As colunas selecionadas precisam usar os mesmos aliases que `findAll`
+   * gera: o nome da propriedade pra colunas próprias (`nome AS name`), e
+   * `<relacao>_<propriedade>` pra colunas de um `@BelongsTo`/`@HasOne`
+   * (`us.nome AS user_name`). Sem isso o mapeamento não acha os valores.
+   */
+  public async findBySql(
+    sql: string,
+    params?: any[],
+    transaction?: Transaction,
+  ): Promise<T[]> {
+    const rows = await this.withTransaction(transaction, (tx) =>
+      tx.queryAsync(sql, params),
+    );
+
+    return this.mapRows(rows);
+  }
+
   /** Usa a transação recebida ou abre uma nova se nenhuma. */
   private withTransaction<R>(
     transaction: Transaction | undefined,
