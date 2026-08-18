@@ -4,17 +4,15 @@ import { runInTransaction } from "../database/transaction";
 import type { SqlOptions } from "../interfaces/sql-options.interface";
 
 /**
- * Repositório genérico herda o `AbstractSql` e já roda a query,
+ * Repositório genérico: usa o `AbstractSql` pra montar a query e já roda ela,
  * devolvendo instâncias de `T`.
  *
- * A `transaction` é opcional em todo método, caso não seja passada será aberta automaticamente.
- * Passe uma quando precisar que a busca faça parte de uma transação maior, já aberta
- * por quem chamou.
+ * A `transaction` é opcional — se não passar, o repositório abre e fecha
+ * uma sozinho. Passe uma quando quiser que a operação faça parte de uma
+ * transação maior, já aberta por quem chamou.
  */
 export abstract class AbstractRepository<T> extends AbstractSql<T> {
-  /**
-   * Busca tudo e mapeia o resultado pra instâncias de `T`. Aceita opções de filtro, ordenação e paginação.
-   */
+  /** Busca tudo, com filtro/ordenação/paginação opcionais. */
   public async findAll(
     options?: SqlOptions,
     transaction?: Transaction,
@@ -28,14 +26,11 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
   }
 
   /**
-   * Roda uma SQL própria e mapeia o resultado pra instâncias de `T` — pra
-   * quando a query é complexa demais pra caber nas opções de `findAll`
-   * (subquery, GROUP BY, UNION...).
+   * Roda uma SQL escrita na mão e mapeia o resultado — pra quando a query é
+   * complexa demais pro `findAll` (subquery, GROUP BY, UNION...).
    *
-   * As colunas selecionadas precisam usar os mesmos aliases que `findAll`
-   * gera: o nome da propriedade pra colunas próprias (`nome AS name`), e
-   * `<relacao>_<propriedade>` pra colunas de um `@BelongsTo`/`@HasOne`
-   * (`us.nome AS user_name`). Sem isso o mapeamento não acha os valores.
+   * Os aliases das colunas precisam bater com os que o `findAll` gera,
+   * senão o mapeamento não acha os valores.
    */
   public async findBySql(
     sql: string,
@@ -49,7 +44,22 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
     return this.mapRows(rows);
   }
 
-  /** Usa a transação recebida ou abre uma nova se nenhuma. */
+  /**
+   * Insere e devolve a entidade já com o que o banco preencheu (id, etc).
+   * Propriedade `undefined` não entra no INSERT; `null` vira `NULL`.
+   */
+  public async insert(entity: T, transaction?: Transaction): Promise<T> {
+    const { sql, params } = this.buildInsertQuery(entity);
+
+    // RETURNING devolve um objeto, não um array como o SELECT.
+    const row = (await this.withTransaction(transaction, (tx) =>
+      tx.queryAsync(sql, params),
+    )) as unknown as Record<string, any>;
+
+    return this.mapRow(row);
+  }
+
+  /** Usa a transação recebida, ou abre uma nova se não vier nenhuma. */
   private withTransaction<R>(
     transaction: Transaction | undefined,
     work: (tx: Transaction) => Promise<R>,
