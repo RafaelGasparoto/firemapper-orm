@@ -74,17 +74,7 @@ export abstract class AbstractSql<T> {
 
     const placeholders = columnsToInsert
       .map((c) => {
-        const value = (entity as any)[c.property];
-
-        if (value === null && !c.nullable) {
-          throw new Error(
-            `Campo '${c.property}' de '${this.entity.name}' não aceita null.`,
-          );
-        }
-
-        params.push(
-          this.processValue(value, `${this.entity.prefix}.${c.name}`, c.type),
-        );
+        params.push(this.resolveValueForWrite(c, (entity as any)[c.property]));
         return "?";
       })
       .join(", ");
@@ -97,6 +87,73 @@ export abstract class AbstractSql<T> {
       sql: `INSERT INTO ${this.entity.name} (${columnNames}) VALUES (${placeholders}) RETURNING ${returning}`,
       params,
     };
+  }
+
+  /**
+   * Monta um UPDATE a partir de uma instância parcial de `T`. Mesma regra do
+   * insert: `undefined` não entra na query, `null` vira `NULL` se a coluna aceitar.
+   *
+   * `where` pode ser um id (atualiza pela chave primária) ou uma lista de
+   * condições — nunca vazio, por segurança.
+   */
+  protected buildUpdateQuery(
+    entity: Partial<T>,
+    where: number | string | SqlCondition[],
+  ): QueryWithParams {
+    const params: any[] = [];
+    const columnsToUpdate = this.columns.filter(
+      (c) => (entity as any)[c.property] !== undefined,
+    );
+
+    if (columnsToUpdate.length === 0) {
+      throw new Error(`Nenhum campo para atualizar em '${this.entity.name}'.`);
+    }
+
+    const setClause = columnsToUpdate
+      .map((c) => {
+        params.push(this.resolveValueForWrite(c, (entity as any)[c.property]));
+        return `${c.name} = ?`;
+      })
+      .join(", ");
+
+    let sql = `UPDATE ${this.entity.name} ${this.entity.prefix} SET ${setClause}`;
+    sql = this.buildWhere(sql, params, this.resolveWhere(where));
+
+    const returning = this.columns
+      .map((c) => `${c.name} AS ${c.alias ?? c.property}`)
+      .join(", ");
+
+    return { sql: `${sql} RETURNING ${returning}`, params };
+  }
+
+  /** Um id vira condição pela chave primária; uma lista de condições passa direto. Nunca aceita vazio. */
+  private resolveWhere(where: number | string | SqlCondition[]): SqlCondition[] {
+    const conditions: SqlCondition[] = Array.isArray(where)
+      ? where
+      : [{ field: getPrimaryKeyProperty(this.entityClass), value: where }];
+
+    if (conditions.length === 0) {
+      throw new Error(
+        `'${this.entity.name}': precisa de pelo menos uma condição, por segurança.`,
+      );
+    }
+
+    return conditions;
+  }
+
+  /** Valida `null` contra `nullable` e converte o valor pro tipo da coluna. Usado por insert e update. */
+  private resolveValueForWrite(column: ColumnMetadata, value: any): any {
+    if (value === null && !column.nullable) {
+      throw new Error(
+        `Campo '${column.property}' de '${this.entity.name}' não aceita null.`,
+      );
+    }
+
+    return this.processValue(
+      value,
+      `${this.entity.prefix}.${column.name}`,
+      column.type,
+    );
   }
 
   /**
