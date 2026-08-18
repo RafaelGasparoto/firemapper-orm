@@ -169,10 +169,8 @@ export abstract class AbstractSql<T> {
     const instance = new this.entityClass();
 
     for (const column of this.columns) {
-      (instance as any)[column.property] = readColumnValue(
-        row,
-        column.alias ?? column.property,
-      );
+      const value = readColumnValue(row, column.alias ?? column.property);
+      (instance as any)[column.property] = parseColumnValue(value, column.type);
     }
 
     for (const relation of this.relations) {
@@ -204,10 +202,8 @@ export abstract class AbstractSql<T> {
     const instance = new target();
 
     for (const column of relation.columns) {
-      instance[column.property] = readColumnValue(
-        row,
-        relationAlias(relation, column),
-      );
+      const value = readColumnValue(row, relationAlias(relation, column));
+      instance[column.property] = parseColumnValue(value, column.type);
     }
 
     return instance;
@@ -509,4 +505,22 @@ function relationAlias(
 function readColumnValue(row: Record<string, any>, alias: string): any {
   const value = row[alias.toUpperCase()] ?? row[alias];
   return value ?? null;
+}
+
+/**
+ * Converte o valor cru do banco pro tipo declarado na coluna. Por enquanto
+ * só mexe em `string-boolean`: `S`/`Y` vira `true`, `N` vira `false` — cobre
+ * tanto CHAR(1) em português (S/N) quanto em inglês (Y/N).
+ */
+function parseColumnValue(value: any, type?: ColumnType): any {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (type === "string-boolean") {
+    const normalized = String(value).trim().toUpperCase();
+    return normalized === "S" || normalized === "Y";
+  }
+
+  return value;
 }
