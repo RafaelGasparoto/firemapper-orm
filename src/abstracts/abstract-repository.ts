@@ -1,7 +1,7 @@
 import type { Transaction } from "node-firebird";
 import { AbstractSql } from "./abstract-sql";
 import { runInTransaction } from "../database/transaction";
-import type { SqlOptions } from "../interfaces/sql-options.interface";
+import type { SqlCondition, SqlOptions } from "../interfaces/sql-options.interface";
 
 /**
  * Repositório genérico: usa o `AbstractSql` pra montar a query e já roda ela,
@@ -57,6 +57,24 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
     )) as unknown as Record<string, any>;
 
     return this.mapRow(row);
+  }
+
+  /**
+   * Atualiza e devolve as linhas afetadas já mapeadas. `where` pode ser um
+   * id (atualiza pela chave primária) ou uma lista de condições.
+   * Propriedade `undefined` não muda; `null` vira `NULL`.
+   */
+  public async update(
+    entity: Partial<T>,
+    where: number | string | SqlCondition[],
+    transaction?: Transaction,
+  ): Promise<T[]> {
+    const { sql, params } = this.buildUpdateQuery(entity, where);
+    const rows = await this.withTransaction(transaction, (tx) =>
+      tx.queryAsync(sql, params),
+    );
+
+    return this.mapRows(rows);
   }
 
   /** Usa a transação recebida, ou abre uma nova se não vier nenhuma. */
