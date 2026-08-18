@@ -53,6 +53,53 @@ export abstract class AbstractSql<T> {
   }
 
   /**
+   * Monta um INSERT a partir de uma instância de `T`. `undefined` não entra
+   * na query (a coluna fica de fora, o banco decide o valor); `null` vira
+   * `NULL`, se a coluna for `nullable` lança erro antes de ir pro banco.
+   *
+   * O `RETURNING` usa os mesmos aliases do `findAll`, então dá pra jogar
+   * direto em `mapRow`.
+   */
+  protected buildInsertQuery(entity: T): QueryWithParams {
+    const params: any[] = [];
+    const columnsToInsert = this.columns.filter(
+      (c) => (entity as any)[c.property] !== undefined,
+    );
+
+    if (columnsToInsert.length === 0) {
+      throw new Error(`Nenhum campo para inserir em '${this.entity.name}'.`);
+    }
+
+    const columnNames = columnsToInsert.map((c) => c.name).join(", ");
+
+    const placeholders = columnsToInsert
+      .map((c) => {
+        const value = (entity as any)[c.property];
+
+        if (value === null && !c.nullable) {
+          throw new Error(
+            `Campo '${c.property}' de '${this.entity.name}' não aceita null.`,
+          );
+        }
+
+        params.push(
+          this.processValue(value, `${this.entity.prefix}.${c.name}`, c.type),
+        );
+        return "?";
+      })
+      .join(", ");
+
+    const returning = this.columns
+      .map((c) => `${c.name} AS ${c.alias ?? c.property}`)
+      .join(", ");
+
+    return {
+      sql: `INSERT INTO ${this.entity.name} (${columnNames}) VALUES (${placeholders}) RETURNING ${returning}`,
+      params,
+    };
+  }
+
+  /**
    * Transforma as linhas que vieram do banco em instâncias de verdade da entidade.
    * Cada `@BelongsTo`/`@HasOne` também vira uma instância, ou `null` quando o LEFT JOIN não achou nada.
    */
