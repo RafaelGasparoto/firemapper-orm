@@ -53,14 +53,14 @@ export abstract class AbstractSql<T> {
   }
 
   /**
-   * Monta um INSERT a partir de uma instância de `T`. `undefined` não entra
-   * na query (a coluna fica de fora, o banco decide o valor); `null` vira
-   * `NULL`, se a coluna for `nullable` lança erro antes de ir pro banco.
+   * Monta um INSERT a partir de uma instância parcial de `T`. `undefined` não
+   * entra na query (a coluna fica de fora, o banco decide o valor); `null`
+   * vira `NULL`, se a coluna for `nullable` lança erro antes de ir pro banco.
    *
    * O `RETURNING` usa os mesmos aliases do `findAll`, então dá pra jogar
    * direto em `mapRow`.
    */
-  protected buildInsertQuery(entity: T): QueryWithParams {
+  protected buildInsertQuery(entity: Partial<T>): QueryWithParams {
     const params: any[] = [];
     const columnsToInsert = this.columns.filter(
       (c) => (entity as any)[c.property] !== undefined,

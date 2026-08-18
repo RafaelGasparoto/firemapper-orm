@@ -48,7 +48,7 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
    * Insere e devolve a entidade já com o que o banco preencheu (id, etc).
    * Propriedade `undefined` não entra no INSERT; `null` vira `NULL`.
    */
-  public async insert(entity: T, transaction?: Transaction): Promise<T> {
+  public async insert(entity: Partial<T>, transaction?: Transaction): Promise<T> {
     const { sql, params } = this.buildInsertQuery(entity);
 
     // RETURNING devolve um objeto, não um array como o SELECT.
