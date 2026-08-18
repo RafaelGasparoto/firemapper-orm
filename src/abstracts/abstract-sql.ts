@@ -79,12 +79,8 @@ export abstract class AbstractSql<T> {
       })
       .join(", ");
 
-    const returning = this.columns
-      .map((c) => `${c.name} AS ${c.alias ?? c.property}`)
-      .join(", ");
-
     return {
-      sql: `INSERT INTO ${this.entity.name} (${columnNames}) VALUES (${placeholders}) RETURNING ${returning}`,
+      sql: `INSERT INTO ${this.entity.name} (${columnNames}) VALUES (${placeholders}) RETURNING ${this.buildReturning()}`,
       params,
     };
   }
@@ -119,11 +115,24 @@ export abstract class AbstractSql<T> {
     let sql = `UPDATE ${this.entity.name} ${this.entity.prefix} SET ${setClause}`;
     sql = this.buildWhere(sql, params, this.resolveWhere(where));
 
-    const returning = this.columns
-      .map((c) => `${c.name} AS ${c.alias ?? c.property}`)
-      .join(", ");
+    return { sql: `${sql} RETURNING ${this.buildReturning()}`, params };
+  }
 
-    return { sql: `${sql} RETURNING ${returning}`, params };
+  /**
+   * Monta um DELETE. `where` pode ser um id (deleta pela chave primária) ou
+   * uma lista de condições — nunca vazio, por segurança.
+   */
+  protected buildDeleteQuery(where: number | string | SqlCondition[]): QueryWithParams {
+    const params: any[] = [];
+    let sql = `DELETE FROM ${this.entity.name} ${this.entity.prefix}`;
+    sql = this.buildWhere(sql, params, this.resolveWhere(where));
+
+    return { sql: `${sql} RETURNING ${this.buildReturning()}`, params };
+  }
+
+  /** Colunas próprias com o mesmo alias do `findAll`, pra usar em RETURNING. */
+  private buildReturning(): string {
+    return this.columns.map((c) => `${c.name} AS ${c.alias ?? c.property}`).join(", ");
   }
 
   /** Um id vira condição pela chave primária; uma lista de condições passa direto. Nunca aceita vazio. */
