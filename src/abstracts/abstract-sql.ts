@@ -8,6 +8,7 @@ import type { ColumnMetadata } from "../interfaces/column-options.interface";
 import type { EntityMetadata } from "../interfaces/entity-options.interface";
 import type { ColumnType } from "../types/column-type";
 import type { SqlCondition, SqlFilter, SqlOptions } from "../interfaces/sql-options.interface";
+import { IncrementType } from "../enums/increment-type.enum";
 
 export interface QueryWithParams {
   sql: string;
@@ -53,30 +54,70 @@ export abstract class AbstractSql<T> {
    * entra na query (a coluna fica de fora, o banco decide o valor); `null`
    * vira `NULL`, se a coluna for `nullable` lança erro antes de ir pro banco.
    *
+   * Com `incrementType` `GEN_ID` ou `MAX_ID`, a chave primária é gerada em
+   * SQL (não vem do `entity`, mesmo que você a preencha).
+   *
    * O `RETURNING` usa os mesmos aliases do `findAll`, então dá pra jogar
    * direto em `mapRow`.
    */
   protected buildInsertQuery(entity: Partial<T>): QueryWithParams {
     const params: any[] = [];
-    const columnsToInsert = this.columns.filter((c) => (entity as any)[c.property] !== undefined);
+    const generatedPrimaryKey = this.buildGeneratedPrimaryKey();
 
-    if (columnsToInsert.length === 0) {
+    const columnsToInsert = this.columns.filter(
+      (c) =>
+        c.name !== generatedPrimaryKey?.columnName && (entity as any)[c.property] !== undefined,
+    );
+
+    if (columnsToInsert.length === 0 && !generatedPrimaryKey) {
       throw new Error(`Nenhum campo para inserir em '${this.entity.name}'.`);
     }
 
-    const columnNames = columnsToInsert.map((c) => c.name).join(", ");
+    const columnNames = [
+      ...(generatedPrimaryKey ? [generatedPrimaryKey.columnName] : []),
+      ...columnsToInsert.map((c) => c.name),
+    ].join(", ");
 
-    const placeholders = columnsToInsert
-      .map((c) => {
+    const values = [
+      ...(generatedPrimaryKey ? [generatedPrimaryKey.expression] : []),
+      ...columnsToInsert.map((c) => {
         params.push(this.resolveValueForWrite(c, (entity as any)[c.property]));
         return "?";
-      })
-      .join(", ");
+      }),
+    ].join(", ");
 
     return {
-      sql: `INSERT INTO ${this.entity.name} (${columnNames}) VALUES (${placeholders}) RETURNING ${this.buildReturning()}`,
+      sql: `INSERT INTO ${this.entity.name} (${columnNames}) VALUES (${values}) RETURNING ${this.buildReturning()}`,
       params,
     };
+  }
+
+  /**
+   * Pra `incrementType` `GEN_ID`/`MAX_ID`, monta a expressão SQL que gera a
+   * chave primária no próprio INSERT. `null` pros outros tipos (`AUTOINCREMENT`
+   * usa a IDENTITY da coluna; `NONE`/`COMPOSITE_KEY` esperam o valor no `entity`).
+   */
+  private buildGeneratedPrimaryKey(): { columnName: string; expression: string } | null {
+    const pkColumnName = this.entity.primaryKeys[0];
+
+    if (this.entity.incrementType === IncrementType.GEN_ID) {
+      if (!this.entity.generatorName) {
+        throw new Error(
+          `Entidade '${this.entity.name}': incrementType GEN_ID precisa de 'generatorName'.`,
+        );
+      }
+
+      return { columnName: pkColumnName, expression: `GEN_ID(${this.entity.generatorName}, 1)` };
+    }
+
+    if (this.entity.incrementType === IncrementType.MAX_ID) {
+      return {
+        columnName: pkColumnName,
+        expression: `(SELECT COALESCE(MAX(${pkColumnName}), 0) + 1 FROM ${this.entity.name})`,
+      };
+    }
+
+    return null;
   }
 
   /**
