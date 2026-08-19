@@ -1,6 +1,9 @@
 import type { Transaction } from "node-firebird";
-import { AbstractSql } from "./abstract-sql";
+import { AbstractSql, hydrateEntity } from "./abstract-sql";
 import { runInTransaction } from "../database/transaction";
+import { getEntityMetadata } from "../metadata/get-entity";
+import { getColumns } from "../metadata/get-columns";
+import { getPrimaryKeyProperty } from "../metadata/get-primary-key";
 import type { SqlOptions, WhereInput } from "../interfaces/sql-options.interface";
 
 /**
@@ -95,6 +98,83 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
     const rows = await this.withTransaction(transaction, (tx) => tx.queryAsync(sql, params));
 
     return this.mapRows(rows);
+  }
+
+  /**
+   * Carrega uma coleção `@HasMany` pra um conjunto de entidades já buscadas
+   * (ex: `repo.load(await repo.findAll(), "addresses")`). Roda uma segunda
+   * query (`WHERE fk IN (...)`) em vez de JOIN, que duplicaria a entidade
+   * dona por cada item da coleção. Entidades sem nenhum item recebem `[]`.
+   */
+  public async load(
+    entities: T[],
+    property: keyof T & string,
+    transaction?: Transaction,
+  ): Promise<T[]> {
+    const relation = this.hasManyRelations.find((r) => r.property === property);
+
+    if (!relation) {
+      throw new Error(`'${property}' não é um @HasMany de '${this.entity.name}'.`);
+    }
+
+    for (const entity of entities) {
+      (entity as any)[property] = [];
+    }
+
+    if (entities.length === 0) {
+      return entities;
+    }
+
+    const target = relation.target();
+    const targetEntity = getEntityMetadata(target);
+    const targetColumns = getColumns(target);
+
+    const foreignKeyColumn = targetColumns.find((c) => c.property === relation.foreignKeyProperty);
+
+    if (!foreignKeyColumn) {
+      throw new Error(
+        `@HasMany '${property}': propriedade '${relation.foreignKeyProperty}' não encontrada em ${target.name}.`,
+      );
+    }
+
+    const localKeyProperty =
+      relation.referencedKeyProperty ?? getPrimaryKeyProperty(this.entityClass);
+
+    const keys = [
+      ...new Set(entities.map((e) => (e as any)[localKeyProperty]).filter((v) => v != null)),
+    ];
+
+    if (keys.length === 0) {
+      return entities;
+    }
+
+    const placeholders = keys.map(() => "?").join(", ");
+    const select = targetColumns
+      .map((c) => `${targetEntity.prefix}.${c.name} AS ${c.alias ?? c.property}`)
+      .join(", ");
+    const sql = `SELECT ${select} FROM ${targetEntity.name} ${targetEntity.prefix} WHERE ${targetEntity.prefix}.${foreignKeyColumn.name} IN (${placeholders})`;
+
+    const rows = await this.withTransaction(transaction, (tx) => tx.queryAsync(sql, keys));
+
+    const grouped = new Map<any, any[]>();
+
+    for (const row of rows) {
+      const child = hydrateEntity(target as new () => any, targetColumns, row);
+      const foreignKeyValue = (child as any)[foreignKeyColumn.property];
+
+      if (!grouped.has(foreignKeyValue)) {
+        grouped.set(foreignKeyValue, []);
+      }
+
+      grouped.get(foreignKeyValue)!.push(child);
+    }
+
+    for (const entity of entities) {
+      const key = (entity as any)[localKeyProperty];
+      (entity as any)[property] = grouped.get(key) ?? [];
+    }
+
+    return entities;
   }
 
   /** Usa a transação recebida, ou abre uma nova se não vier nenhuma. */
