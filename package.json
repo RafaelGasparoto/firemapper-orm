@@ -1,7 +1,7 @@
 {
   "name": "firemapper-orm",
   "version": "1.0.0",
-  "description": "",
+  "description": "ORM para Firebird baseado em decorators, construído sobre o node-firebird.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "typecheck:test": "tsc --noEmit -p test/tsconfig.json",
@@ -17,9 +18,23 @@
     "dev": "tsx watch src/index.ts",
     "test": "cross-env TSX_TSCONFIG_PATH=test/tsconfig.json node --import tsx --test \"test/**/*.test.ts\""
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "firebird",
+    "orm",
+    "decorators",
+    "typescript",
+    "node-firebird"
+  ],
+  "author": "Rafael Gasparoto",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RafaelGasparoto/firemapper-orm.git"
+  },
+  "homepage": "https://github.com/RafaelGasparoto/firemapper-orm#readme",
+  "bugs": {
+    "url": "https://github.com/RafaelGasparoto/firemapper-orm/issues"
+  },
   "type": "commonjs",
   "dependencies": {
     "dotenv": "^17.4.2",
