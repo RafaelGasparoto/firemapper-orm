@@ -28,6 +28,15 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
     return this.mapRows(rows);
   }
 
+  /** Busca um registro pela chave primária, ou `null` se não existir. */
+  public async findById(id: number | string, transaction?: Transaction): Promise<T | null> {
+    return this.findOne(id, undefined, transaction);
+  }
+
+  /**
+   * Busca o primeiro registro que bater com `where` (id ou lista de
+   * condições, igual ao `update`), ou `null` se não existir.
+   */
   public async findOne(
     where: number | string | SqlCondition[],
     options?: Pick<SqlOptions, "orderBy" | "orderDirection" | "select">,
