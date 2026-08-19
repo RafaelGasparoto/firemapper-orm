@@ -1,7 +1,10 @@
 import type { Transaction } from "node-firebird";
 import { AbstractSql } from "./abstract-sql";
 import { runInTransaction } from "../database/transaction";
-import type { SqlCondition, SqlOptions } from "../interfaces/sql-options.interface";
+import type {
+  SqlCondition,
+  SqlOptions,
+} from "../interfaces/sql-options.interface";
 
 /**
  * Repositório genérico: usa o `AbstractSql` pra montar a query e já roda ela,
@@ -23,6 +26,19 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
     );
 
     return this.mapRows(rows);
+  }
+
+  public async findOne(
+    where: number | string | SqlCondition[],
+    options?: Pick<SqlOptions, "orderBy" | "orderDirection" | "select">,
+    transaction?: Transaction,
+  ): Promise<T | null> {
+    const rows = await this.findAll(
+      { ...options, where: this.resolveWhere(where), limit: 1 },
+      transaction,
+    );
+
+    return rows[0] ?? null;
   }
 
   /**

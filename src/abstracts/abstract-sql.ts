@@ -136,7 +136,9 @@ export abstract class AbstractSql<T> {
   }
 
   /** Um id vira condição pela chave primária; uma lista de condições passa direto. Nunca aceita vazio. */
-  private resolveWhere(where: number | string | SqlCondition[]): SqlCondition[] {
+  protected resolveWhere(
+    where: number | string | SqlCondition[],
+  ): SqlCondition[] {
     const conditions: SqlCondition[] = Array.isArray(where)
       ? where
       : [{ field: getPrimaryKeyProperty(this.entityClass), value: where }];
