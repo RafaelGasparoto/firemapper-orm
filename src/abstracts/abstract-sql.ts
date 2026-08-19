@@ -6,6 +6,7 @@ import { resolveRelation } from "../metadata/resolve-relation";
 import type { ResolvedRelation } from "../metadata/resolve-relation";
 import type { ColumnMetadata } from "../interfaces/column-options.interface";
 import type { EntityMetadata } from "../interfaces/entity-options.interface";
+import type { RelationMetadata } from "../interfaces/relation-options.interface";
 import type { ColumnType } from "../types/column-type";
 import type {
   SqlCondition,
@@ -30,14 +31,20 @@ export interface QueryWithParams {
 export abstract class AbstractSql<T> {
   protected readonly entity: EntityMetadata;
   protected readonly columns: ColumnMetadata[];
+  /** `@BelongsTo`/`@HasOne` — resolvidos via JOIN, entram no SELECT. */
   protected readonly relations: ResolvedRelation[];
+  /** `@HasMany` — não entra no SELECT (duplicaria a entidade dona). Carregado à parte, ver `AbstractRepository.load`. */
+  protected readonly hasManyRelations: RelationMetadata[];
 
   constructor(protected readonly entityClass: new () => T) {
     this.entity = getEntityMetadata(entityClass);
     this.columns = getColumns(entityClass);
-    this.relations = getRelations(entityClass).map((relation) =>
-      resolveRelation(entityClass, relation),
-    );
+
+    const allRelations = getRelations(entityClass);
+    this.relations = allRelations
+      .filter((relation) => relation.kind !== "hasMany")
+      .map((relation) => resolveRelation(entityClass, relation));
+    this.hasManyRelations = allRelations.filter((relation) => relation.kind === "hasMany");
 
     this.validateEntity();
   }
@@ -217,15 +224,14 @@ export abstract class AbstractSql<T> {
 
   /** Igual a `mapRows`, mas pra uma linha só. */
   protected mapRow(row: Record<string, any>): T {
-    const instance = new this.entityClass();
-
-    for (const column of this.columns) {
-      const value = readColumnValue(row, column.alias ?? column.property);
-      (instance as any)[column.property] = parseColumnValue(value, column.type);
-    }
+    const instance = hydrateEntity(this.entityClass, this.columns, row);
 
     for (const relation of this.relations) {
       (instance as any)[relation.property] = this.mapRelation(row, relation);
+    }
+
+    for (const relation of this.hasManyRelations) {
+      (instance as any)[relation.property] = [];
     }
 
     return instance;
@@ -535,4 +541,24 @@ function parseColumnValue(value: any, type?: ColumnType): any {
   }
 
   return value;
+}
+
+/**
+ * Cria uma instância de `entityClass` e preenche `columns` a partir de `row`
+ * (mesma leitura/conversão que `mapRow` usa pros campos próprios). Também
+ * usada por `AbstractRepository.load` pra montar os itens de uma coleção `@HasMany`.
+ */
+export function hydrateEntity<E>(
+  entityClass: new () => E,
+  columns: ColumnMetadata[],
+  row: Record<string, any>,
+): E {
+  const instance = new entityClass();
+
+  for (const column of columns) {
+    const value = readColumnValue(row, column.alias ?? column.property);
+    (instance as any)[column.property] = parseColumnValue(value, column.type);
+  }
+
+  return instance;
 }
