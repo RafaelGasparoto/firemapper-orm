@@ -89,3 +89,17 @@ export function createPool(size?: number, overrides?: string | Partial<Options>)
 export function getPool(): ConnectionPool {
   return pool ?? createPool();
 }
+
+/**
+ * Destroys the connection pool, if any. Needed for scripts/tests that must
+ * exit cleanly — otherwise the pool keeps sockets open and the process
+ * never exits on its own (the SIGTERM/SIGINT cleanup only covers normal shutdown).
+ */
+export async function closePool(): Promise<void> {
+  if (!pool) {
+    return;
+  }
+
+  await pool.destroyAsync();
+  pool = null;
+}
