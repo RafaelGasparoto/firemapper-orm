@@ -23,6 +23,25 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
     return this.mapRows(rows);
   }
 
+  /**
+   * Igual a `findAll`, mas já chama `load` pra cada `@HasMany` declarado na
+   * entidade. Não é o padrão do `findAll` de propósito: a maioria das buscas
+   * não precisa das coleções inteiras, só quem realmente vai usá-las paga o custo.
+   */
+  public async findAllWithRelations(options?: SqlOptions, transaction?: Transaction): Promise<T[]> {
+    const entities = await this.findAll(options, transaction);
+    return this.loadAll(entities, transaction);
+  }
+
+  /** Chama `load` pra cada `@HasMany` declarado na entidade, de uma vez. */
+  public async loadAll(entities: T[], transaction?: Transaction): Promise<T[]> {
+    for (const relation of this.hasManyRelations) {
+      await this.load(entities, relation.property as keyof T & string, transaction);
+    }
+
+    return entities;
+  }
+
   /** Busca um registro pela chave primária, ou `null` se não existir. */
   public async findById(id: number | string, transaction?: Transaction): Promise<T | null> {
     return this.findOne(id, undefined, transaction);
