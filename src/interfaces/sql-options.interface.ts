@@ -22,6 +22,14 @@ export interface SqlFilter {
 
 export type SqlCondition = SqlFilter | SqlGroup;
 
+/**
+ * Formato aceito por `findOne`/`findById`/`update`/`delete` pra identificar
+ * linhas: um id solto (só serve pra chave primária simples), um objeto
+ * propriedade → valor (obrigatório pra chave composta, ex: `{ userId: 5, roleId: 2 }`),
+ * ou uma lista de condições completa, igual ao `where` do `findAll`.
+ */
+export type WhereInput = number | string | Record<string, any> | SqlCondition[];
+
 export interface SqlGroup {
   and?: SqlCondition[];
   or?: SqlCondition[];

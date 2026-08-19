@@ -1,7 +1,7 @@
 import type { Transaction } from "node-firebird";
 import { AbstractSql } from "./abstract-sql";
 import { runInTransaction } from "../database/transaction";
-import type { SqlCondition, SqlOptions } from "../interfaces/sql-options.interface";
+import type { SqlOptions, WhereInput } from "../interfaces/sql-options.interface";
 
 /**
  * Repositório genérico: usa o `AbstractSql` pra montar a query e já roda ela,
@@ -26,11 +26,11 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
   }
 
   /**
-   * Busca o primeiro registro que bater com `where` (id ou lista de
-   * condições, igual ao `update`), ou `null` se não existir.
+   * Busca o primeiro registro que bater com `where` (id, objeto propriedade
+   * → valor pra chave composta, ou lista de condições), ou `null` se não existir.
    */
   public async findOne(
-    where: number | string | SqlCondition[],
+    where: WhereInput,
     options?: Pick<SqlOptions, "orderBy" | "orderDirection" | "select">,
     transaction?: Transaction,
   ): Promise<T | null> {
@@ -71,13 +71,13 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
   }
 
   /**
-   * Atualiza e devolve as linhas afetadas já mapeadas. `where` pode ser um
-   * id (atualiza pela chave primária) ou uma lista de condições.
+   * Atualiza e devolve as linhas afetadas já mapeadas. `where` aceita as
+   * mesmas opções do `findOne` (id, objeto pra chave composta, ou condições).
    * Propriedade `undefined` não muda; `null` vira `NULL`.
    */
   public async update(
     entity: Partial<T>,
-    where: number | string | SqlCondition[],
+    where: WhereInput,
     transaction?: Transaction,
   ): Promise<T[]> {
     const { sql, params } = this.buildUpdateQuery(entity, where);
@@ -87,13 +87,10 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
   }
 
   /**
-   * Apaga e devolve as linhas removidas já mapeadas. `where` pode ser um id
-   * (deleta pela chave primária) ou uma lista de condições, igual ao `update`.
+   * Apaga e devolve as linhas removidas já mapeadas. `where` aceita as
+   * mesmas opções do `update`.
    */
-  public async delete(
-    where: number | string | SqlCondition[],
-    transaction?: Transaction,
-  ): Promise<T[]> {
+  public async delete(where: WhereInput, transaction?: Transaction): Promise<T[]> {
     const { sql, params } = this.buildDeleteQuery(where);
     const rows = await this.withTransaction(transaction, (tx) => tx.queryAsync(sql, params));
 

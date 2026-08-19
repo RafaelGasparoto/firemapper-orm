@@ -7,7 +7,12 @@ import type { ResolvedRelation } from "../metadata/resolve-relation";
 import type { ColumnMetadata } from "../interfaces/column-options.interface";
 import type { EntityMetadata } from "../interfaces/entity-options.interface";
 import type { ColumnType } from "../types/column-type";
-import type { SqlCondition, SqlFilter, SqlOptions } from "../interfaces/sql-options.interface";
+import type {
+  SqlCondition,
+  SqlFilter,
+  SqlOptions,
+  WhereInput,
+} from "../interfaces/sql-options.interface";
 import { IncrementType } from "../enums/increment-type.enum";
 
 export interface QueryWithParams {
@@ -124,13 +129,11 @@ export abstract class AbstractSql<T> {
    * Monta um UPDATE a partir de uma instância parcial de `T`. Mesma regra do
    * insert: `undefined` não entra na query, `null` vira `NULL` se a coluna aceitar.
    *
-   * `where` pode ser um id (atualiza pela chave primária) ou uma lista de
+   * `where` aceita um id (só pra chave primária simples), um objeto
+   * propriedade → valor (obrigatório pra chave composta) ou uma lista de
    * condições. Nunca pode vir vazio, por segurança.
    */
-  protected buildUpdateQuery(
-    entity: Partial<T>,
-    where: number | string | SqlCondition[],
-  ): QueryWithParams {
+  protected buildUpdateQuery(entity: Partial<T>, where: WhereInput): QueryWithParams {
     const params: any[] = [];
     const columnsToUpdate = this.columns.filter((c) => (entity as any)[c.property] !== undefined);
 
@@ -151,11 +154,8 @@ export abstract class AbstractSql<T> {
     return { sql: `${sql} RETURNING ${this.buildReturning()}`, params };
   }
 
-  /**
-   * Monta um DELETE. `where` pode ser um id (deleta pela chave primária) ou
-   * uma lista de condições. Nunca pode vir vazio, por segurança.
-   */
-  protected buildDeleteQuery(where: number | string | SqlCondition[]): QueryWithParams {
+  /** Monta um DELETE. `where` aceita as mesmas opções do `buildUpdateQuery`. */
+  protected buildDeleteQuery(where: WhereInput): QueryWithParams {
     const params: any[] = [];
     let sql = `DELETE FROM ${this.entity.name} ${this.entity.prefix}`;
     sql = this.buildWhere(sql, params, this.resolveWhere(where));
@@ -168,17 +168,34 @@ export abstract class AbstractSql<T> {
     return this.columns.map((c) => `${c.name} AS ${c.alias ?? c.property}`).join(", ");
   }
 
-  /** Um id vira condição pela chave primária; uma lista de condições passa direto. Nunca aceita vazio. */
-  protected resolveWhere(where: number | string | SqlCondition[]): SqlCondition[] {
-    const conditions: SqlCondition[] = Array.isArray(where)
-      ? where
-      : [{ field: getPrimaryKeyProperty(this.entityClass), value: where }];
+  /**
+   * Um id vira condição pela chave primária (só funciona pra chave simples);
+   * um objeto vira uma condição por propriedade, unidas com AND; uma lista
+   * de condições passa direto. Nunca aceita vazio.
+   */
+  protected resolveWhere(where: WhereInput): SqlCondition[] {
+    const conditions = Array.isArray(where) ? where : this.resolveWhereShorthand(where);
 
     if (conditions.length === 0) {
       throw new Error(`'${this.entity.name}': precisa de pelo menos uma condição, por segurança.`);
     }
 
     return conditions;
+  }
+
+  private resolveWhereShorthand(where: number | string | Record<string, any>): SqlFilter[] {
+    if (typeof where === "object") {
+      return Object.entries(where).map(([field, value]) => ({ field, value }));
+    }
+
+    if (this.entity.primaryKeys.length > 1) {
+      throw new Error(
+        `Entidade '${this.entity.name}' tem chave composta (${this.entity.primaryKeys.join(", ")}). ` +
+          "Passe um objeto com todas as colunas em vez de um id solto.",
+      );
+    }
+
+    return [{ field: getPrimaryKeyProperty(this.entityClass), value: where }];
   }
 
   /** Valida `null` contra `nullable` e converte o valor pro tipo da coluna. Usado por insert e update. */
@@ -360,12 +377,19 @@ export abstract class AbstractSql<T> {
     }
   }
 
+  /** Sem `orderBy`, ordena pela chave primária inteira (todas as colunas, se for composta). */
   private buildOrderBy(sql: string, orderBy?: string, direction?: "ASC" | "DESC"): string {
-    const column = orderBy
-      ? this.resolveField(orderBy).column
-      : `${this.entity.prefix}.${this.entity.primaryKeys[0]}`;
+    const directionSql = direction?.toUpperCase() === "DESC" ? "DESC" : "ASC";
 
-    return `${sql} ORDER BY ${column} ${direction?.toUpperCase() === "DESC" ? "DESC" : "ASC"}`;
+    if (orderBy) {
+      return `${sql} ORDER BY ${this.resolveField(orderBy).column} ${directionSql}`;
+    }
+
+    const columns = this.entity.primaryKeys
+      .map((pk) => `${this.entity.prefix}.${pk} ${directionSql}`)
+      .join(", ");
+
+    return `${sql} ORDER BY ${columns}`;
   }
 
   /**
