@@ -9,7 +9,8 @@ const DECORATOR_NAME: Record<RelationMetadata["kind"], string> = {
 
 /** Usado pelos decorators `@BelongsTo`/`@HasOne` para gravar o relacionamento nos metadados da entidade. */
 export function registerRelation(constructor: Function, relation: RelationMetadata) {
-  const relations: RelationMetadata[] = Reflect.getMetadata(RELATION_METADATA_KEY, constructor) || [];
+  const relations: RelationMetadata[] =
+    Reflect.getMetadata(RELATION_METADATA_KEY, constructor) || [];
 
   if (relations.some((r) => r.property === relation.property)) {
     throw new Error(

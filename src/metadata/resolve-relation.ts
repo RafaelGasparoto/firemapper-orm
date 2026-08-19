@@ -2,7 +2,11 @@ import { getEntityMetadata } from "./get-entity";
 import { getColumns } from "./get-columns";
 import { getPrimaryKeyProperty } from "./get-primary-key";
 import type { ColumnMetadata } from "../interfaces/column-options.interface";
-import type { JoinType, RelationKind, RelationMetadata } from "../interfaces/relation-options.interface";
+import type {
+  JoinType,
+  RelationKind,
+  RelationMetadata,
+} from "../interfaces/relation-options.interface";
 
 export interface ResolvedRelation {
   kind: RelationKind;
@@ -21,7 +25,12 @@ export interface ResolvedRelation {
   columns: ColumnMetadata[];
 }
 
-function findColumn(columns: ColumnMetadata[], property: string, entityName: string, relation: RelationMetadata): ColumnMetadata {
+function findColumn(
+  columns: ColumnMetadata[],
+  property: string,
+  entityName: string,
+  relation: RelationMetadata,
+): ColumnMetadata {
   const column = columns.find((c) => c.property === property);
 
   if (!column) {

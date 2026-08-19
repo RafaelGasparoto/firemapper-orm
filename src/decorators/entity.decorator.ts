@@ -18,11 +18,15 @@ import type { EntityMetadata, EntityOptions } from "../interfaces/entity-options
 export function Entity(options: EntityOptions) {
   return function (constructor: Function) {
     if (Reflect.getMetadata(ENTITY_METADATA_KEY, constructor)) {
-      throw new Error(`@Entity: a entidade ${constructor.name} já possui uma anotação de entidade.`);
+      throw new Error(
+        `@Entity: a entidade ${constructor.name} já possui uma anotação de entidade.`,
+      );
     }
 
     if (options.primaryKeys.length === 0) {
-      throw new Error(`@Entity: a entidade ${constructor.name} precisa de ao menos uma chave primária.`);
+      throw new Error(
+        `@Entity: a entidade ${constructor.name} precisa de ao menos uma chave primária.`,
+      );
     }
 
     if (
@@ -36,7 +40,9 @@ export function Entity(options: EntityOptions) {
     }
 
     if (options.incrementType === IncrementType.GEN_ID && !options.generatorName) {
-      throw new Error(`@Entity: 'generatorName' é obrigatório em ${constructor.name} quando incrementType é GEN_ID.`);
+      throw new Error(
+        `@Entity: 'generatorName' é obrigatório em ${constructor.name} quando incrementType é GEN_ID.`,
+      );
     }
 
     const metadata: EntityMetadata = {

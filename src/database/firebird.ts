@@ -1,18 +1,12 @@
 import * as Firebird from "node-firebird";
-import type {
-  ConnectionPool,
-  Options,
-  SupportedCharacterSet,
-} from "node-firebird";
+import type { ConnectionPool, Options, SupportedCharacterSet } from "node-firebird";
 
 let pool: ConnectionPool | null = null;
 
 /**
  * Builds the connection options accepted by node-firebird.
  */
-export function resolveOptions(
-  overrides?: string | Partial<Options>,
-): string | Options {
+export function resolveOptions(overrides?: string | Partial<Options>): string | Options {
   if (typeof overrides === "string") {
     return overrides;
   }
@@ -29,8 +23,7 @@ export function resolveOptions(
     password: process.env.FIREBIRD_PASSWORD || "masterkey",
     role: process.env.FIREBIRD_ROLE || undefined,
     lowercase_keys: process.env.FIREBIRD_LOWERCASE_KEYS === "true",
-    encoding:
-      (process.env.FIREBIRD_ENCODING as SupportedCharacterSet) || "UTF8",
+    encoding: (process.env.FIREBIRD_ENCODING as SupportedCharacterSet) || "UTF8",
     retryConnectionInterval: 1000,
   };
 
@@ -77,10 +70,7 @@ function registerAutoCleanup() {
  * @param size max simultaneous connections, defaults to `FIREBIRD_POOL_SIZE` or 5.
  * @param overrides see {@link resolveOptions}.
  */
-export function createPool(
-  size?: number,
-  overrides?: string | Partial<Options>,
-): ConnectionPool {
+export function createPool(size?: number, overrides?: string | Partial<Options>): ConnectionPool {
   if (pool) {
     return pool;
   }

@@ -7,11 +7,7 @@ import type { ResolvedRelation } from "../metadata/resolve-relation";
 import type { ColumnMetadata } from "../interfaces/column-options.interface";
 import type { EntityMetadata } from "../interfaces/entity-options.interface";
 import type { ColumnType } from "../types/column-type";
-import type {
-  SqlCondition,
-  SqlFilter,
-  SqlOptions,
-} from "../interfaces/sql-options.interface";
+import type { SqlCondition, SqlFilter, SqlOptions } from "../interfaces/sql-options.interface";
 
 export interface QueryWithParams {
   sql: string;
@@ -62,9 +58,7 @@ export abstract class AbstractSql<T> {
    */
   protected buildInsertQuery(entity: Partial<T>): QueryWithParams {
     const params: any[] = [];
-    const columnsToInsert = this.columns.filter(
-      (c) => (entity as any)[c.property] !== undefined,
-    );
+    const columnsToInsert = this.columns.filter((c) => (entity as any)[c.property] !== undefined);
 
     if (columnsToInsert.length === 0) {
       throw new Error(`Nenhum campo para inserir em '${this.entity.name}'.`);
@@ -90,16 +84,14 @@ export abstract class AbstractSql<T> {
    * insert: `undefined` não entra na query, `null` vira `NULL` se a coluna aceitar.
    *
    * `where` pode ser um id (atualiza pela chave primária) ou uma lista de
-   * condições — nunca vazio, por segurança.
+   * condições. Nunca pode vir vazio, por segurança.
    */
   protected buildUpdateQuery(
     entity: Partial<T>,
     where: number | string | SqlCondition[],
   ): QueryWithParams {
     const params: any[] = [];
-    const columnsToUpdate = this.columns.filter(
-      (c) => (entity as any)[c.property] !== undefined,
-    );
+    const columnsToUpdate = this.columns.filter((c) => (entity as any)[c.property] !== undefined);
 
     if (columnsToUpdate.length === 0) {
       throw new Error(`Nenhum campo para atualizar em '${this.entity.name}'.`);
@@ -120,7 +112,7 @@ export abstract class AbstractSql<T> {
 
   /**
    * Monta um DELETE. `where` pode ser um id (deleta pela chave primária) ou
-   * uma lista de condições — nunca vazio, por segurança.
+   * uma lista de condições. Nunca pode vir vazio, por segurança.
    */
   protected buildDeleteQuery(where: number | string | SqlCondition[]): QueryWithParams {
     const params: any[] = [];
@@ -136,17 +128,13 @@ export abstract class AbstractSql<T> {
   }
 
   /** Um id vira condição pela chave primária; uma lista de condições passa direto. Nunca aceita vazio. */
-  protected resolveWhere(
-    where: number | string | SqlCondition[],
-  ): SqlCondition[] {
+  protected resolveWhere(where: number | string | SqlCondition[]): SqlCondition[] {
     const conditions: SqlCondition[] = Array.isArray(where)
       ? where
       : [{ field: getPrimaryKeyProperty(this.entityClass), value: where }];
 
     if (conditions.length === 0) {
-      throw new Error(
-        `'${this.entity.name}': precisa de pelo menos uma condição, por segurança.`,
-      );
+      throw new Error(`'${this.entity.name}': precisa de pelo menos uma condição, por segurança.`);
     }
 
     return conditions;
@@ -155,16 +143,10 @@ export abstract class AbstractSql<T> {
   /** Valida `null` contra `nullable` e converte o valor pro tipo da coluna. Usado por insert e update. */
   private resolveValueForWrite(column: ColumnMetadata, value: any): any {
     if (value === null && !column.nullable) {
-      throw new Error(
-        `Campo '${column.property}' de '${this.entity.name}' não aceita null.`,
-      );
+      throw new Error(`Campo '${column.property}' de '${this.entity.name}' não aceita null.`);
     }
 
-    return this.processValue(
-      value,
-      `${this.entity.prefix}.${column.name}`,
-      column.type,
-    );
+    return this.processValue(value, `${this.entity.prefix}.${column.name}`, column.type);
   }
 
   /**
@@ -191,20 +173,12 @@ export abstract class AbstractSql<T> {
     return instance;
   }
 
-  private mapRelation(
-    row: Record<string, any>,
-    relation: ResolvedRelation,
-  ): any {
+  private mapRelation(row: Record<string, any>, relation: ResolvedRelation): any {
     const target = relation.target as new () => any;
     const primaryKeyProperty = getPrimaryKeyProperty(target);
-    const primaryKeyColumn = relation.columns.find(
-      (c) => c.property === primaryKeyProperty,
-    )!;
+    const primaryKeyColumn = relation.columns.find((c) => c.property === primaryKeyProperty)!;
 
-    const primaryKeyValue = readColumnValue(
-      row,
-      relationAlias(relation, primaryKeyColumn),
-    );
+    const primaryKeyValue = readColumnValue(row, relationAlias(relation, primaryKeyColumn));
 
     if (primaryKeyValue === null) {
       return null;
@@ -227,22 +201,16 @@ export abstract class AbstractSql<T> {
    */
   private buildBaseSelect(select?: string[]): string {
     const shouldFilter = !!select?.length;
-    const included = (property: string) =>
-      !shouldFilter || select!.includes(property);
+    const included = (property: string) => !shouldFilter || select!.includes(property);
 
     const ownFields = this.columns
       .filter((c) => included(c.property))
-      .map(
-        (c) => `${this.entity.prefix}.${c.name} AS ${c.alias ?? c.property}`,
-      );
+      .map((c) => `${this.entity.prefix}.${c.name} AS ${c.alias ?? c.property}`);
 
     const relationFields = this.relations.flatMap((relation) =>
       relation.columns
         .filter((c) => included(`${relation.property}.${c.property}`))
-        .map(
-          (c) =>
-            `${relation.prefix}.${c.name} AS ${relationAlias(relation, c)}`,
-        ),
+        .map((c) => `${relation.prefix}.${c.name} AS ${relationAlias(relation, c)}`),
     );
 
     const fields = [...ownFields, ...relationFields];
@@ -258,11 +226,7 @@ export abstract class AbstractSql<T> {
     return `SELECT ${fields.join(", ")} FROM ${this.entity.name} ${this.entity.prefix}${joins ? ` ${joins}` : ""}`;
   }
 
-  private buildWhere(
-    sql: string,
-    params: any[],
-    conditions?: SqlCondition[],
-  ): string {
+  private buildWhere(sql: string, params: any[], conditions?: SqlCondition[]): string {
     if (!conditions?.length) {
       return sql;
     }
@@ -341,9 +305,7 @@ export abstract class AbstractSql<T> {
 
       case "IN": {
         if (!Array.isArray(filter.value) || filter.value.length === 0) {
-          throw new Error(
-            `Operador IN precisa de um array não vazio ('${filter.field}').`,
-          );
+          throw new Error(`Operador IN precisa de um array não vazio ('${filter.field}').`);
         }
         const placeholders = filter.value.map((v) => {
           params.push(this.processValue(v, column, type));
@@ -357,11 +319,7 @@ export abstract class AbstractSql<T> {
     }
   }
 
-  private buildOrderBy(
-    sql: string,
-    orderBy?: string,
-    direction?: "ASC" | "DESC",
-  ): string {
+  private buildOrderBy(sql: string, orderBy?: string, direction?: "ASC" | "DESC"): string {
     const column = orderBy
       ? this.resolveField(orderBy).column
       : `${this.entity.prefix}.${this.entity.primaryKeys[0]}`;
@@ -371,27 +329,15 @@ export abstract class AbstractSql<T> {
 
   /**
    * Adiciona a paginação. O Firebird pagina com `ROWS <inicio> TO <fim>`,
-   * contando a partir de 1 e incluindo as duas pontas — por isso o `+1`.
+   * contando a partir de 1 e incluindo as duas pontas, por isso o `+1`.
    */
-  private buildPagination(
-    sql: string,
-    params: any[],
-    limit?: number,
-    offset = 0,
-  ): string {
+  private buildPagination(sql: string, params: any[], limit?: number, offset = 0): string {
     if (limit === undefined) {
       return sql;
     }
 
-    if (
-      !Number.isFinite(limit) ||
-      !Number.isFinite(offset) ||
-      limit < 1 ||
-      offset < 0
-    ) {
-      throw new Error(
-        "Limit e offset devem ser números válidos (limit >= 1, offset >= 0).",
-      );
+    if (!Number.isFinite(limit) || !Number.isFinite(offset) || limit < 1 || offset < 0) {
+      throw new Error("Limit e offset devem ser números válidos (limit >= 1, offset >= 0).");
     }
 
     params.push(offset + 1, offset + limit);
@@ -407,9 +353,7 @@ export abstract class AbstractSql<T> {
       const found = this.columns.find((c) => c.property === field);
 
       if (!found) {
-        throw new Error(
-          `Campo '${field}' não encontrado em '${this.entity.name}'.`,
-        );
+        throw new Error(`Campo '${field}' não encontrado em '${this.entity.name}'.`);
       }
 
       return {
@@ -420,9 +364,7 @@ export abstract class AbstractSql<T> {
 
     const relationProperty = field.slice(0, dotIndex);
     const columnProperty = field.slice(dotIndex + 1);
-    const relation = this.relations.find(
-      (r) => r.property === relationProperty,
-    );
+    const relation = this.relations.find((r) => r.property === relationProperty);
 
     if (!relation) {
       throw new Error(
@@ -457,8 +399,7 @@ export abstract class AbstractSql<T> {
         return value ? "TRUE" : "FALSE";
 
       case "string-boolean":
-        return String(value).toUpperCase() === "TRUE" ||
-          String(value).toUpperCase() === "S"
+        return String(value).toUpperCase() === "TRUE" || String(value).toUpperCase() === "S"
           ? "S"
           : "N";
 
@@ -481,9 +422,7 @@ export abstract class AbstractSql<T> {
 
     for (const relation of this.relations) {
       if (relation.columns.length === 0) {
-        throw new Error(
-          `Relacionamento '${relation.property}' (${relation.table}) sem colunas.`,
-        );
+        throw new Error(`Relacionamento '${relation.property}' (${relation.table}) sem colunas.`);
       }
 
       if (prefixes.has(relation.prefix)) {
@@ -497,10 +436,7 @@ export abstract class AbstractSql<T> {
   }
 }
 
-function relationAlias(
-  relation: ResolvedRelation,
-  column: ColumnMetadata,
-): string {
+function relationAlias(relation: ResolvedRelation, column: ColumnMetadata): string {
   return `${relation.property}_${column.alias ?? column.property}`;
 }
 
@@ -520,7 +456,7 @@ function readColumnValue(row: Record<string, any>, alias: string): any {
 
 /**
  * Converte o valor cru do banco pro tipo declarado na coluna. Por enquanto
- * só mexe em `string-boolean`: `S`/`Y` vira `true`, `N` vira `false` — cobre
+ * só mexe em `string-boolean`: `S`/`Y` vira `true`, `N` vira `false`. Cobre
  * tanto CHAR(1) em português (S/N) quanto em inglês (Y/N).
  */
 function parseColumnValue(value: any, type?: ColumnType): any {

@@ -14,13 +14,16 @@ import type { ColumnType } from "../types/column-type";
  */
 export function Column(options: ColumnOptions) {
   return (target: object, propertyKey: string) => {
-    const columns: ColumnMetadata[] = Reflect.getMetadata(COLUMN_METADATA_KEY, target.constructor) || [];
+    const columns: ColumnMetadata[] =
+      Reflect.getMetadata(COLUMN_METADATA_KEY, target.constructor) || [];
 
     const designType = Reflect.getMetadata("design:type", target, propertyKey);
     const inferredType = designType?.name?.toLowerCase() as ColumnType | undefined;
 
     if (columns.some((c) => c.property === propertyKey)) {
-      throw new Error(`@Column: a propriedade '${propertyKey}' de ${target.constructor.name} já possui uma coluna.`);
+      throw new Error(
+        `@Column: a propriedade '${propertyKey}' de ${target.constructor.name} já possui uma coluna.`,
+      );
     }
 
     columns.push({

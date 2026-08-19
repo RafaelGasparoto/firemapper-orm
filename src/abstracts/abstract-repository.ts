@@ -1,10 +1,7 @@
 import type { Transaction } from "node-firebird";
 import { AbstractSql } from "./abstract-sql";
 import { runInTransaction } from "../database/transaction";
-import type {
-  SqlCondition,
-  SqlOptions,
-} from "../interfaces/sql-options.interface";
+import type { SqlCondition, SqlOptions } from "../interfaces/sql-options.interface";
 
 /**
  * Repositório genérico: usa o `AbstractSql` pra montar a query e já roda ela,
@@ -16,14 +13,9 @@ import type {
  */
 export abstract class AbstractRepository<T> extends AbstractSql<T> {
   /** Busca tudo, com filtro/ordenação/paginação opcionais. */
-  public async findAll(
-    options?: SqlOptions,
-    transaction?: Transaction,
-  ): Promise<T[]> {
+  public async findAll(options?: SqlOptions, transaction?: Transaction): Promise<T[]> {
     const { sql, params } = this.buildSelectQuery(options);
-    const rows = await this.withTransaction(transaction, (tx) =>
-      tx.queryAsync(sql, params),
-    );
+    const rows = await this.withTransaction(transaction, (tx) => tx.queryAsync(sql, params));
 
     return this.mapRows(rows);
   }
@@ -57,14 +49,8 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
    * Os aliases das colunas precisam bater com os que o `findAll` gera,
    * senão o mapeamento não acha os valores.
    */
-  public async findBySql(
-    sql: string,
-    params?: any[],
-    transaction?: Transaction,
-  ): Promise<T[]> {
-    const rows = await this.withTransaction(transaction, (tx) =>
-      tx.queryAsync(sql, params),
-    );
+  public async findBySql(sql: string, params?: any[], transaction?: Transaction): Promise<T[]> {
+    const rows = await this.withTransaction(transaction, (tx) => tx.queryAsync(sql, params));
 
     return this.mapRows(rows);
   }
@@ -95,9 +81,7 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
     transaction?: Transaction,
   ): Promise<T[]> {
     const { sql, params } = this.buildUpdateQuery(entity, where);
-    const rows = await this.withTransaction(transaction, (tx) =>
-      tx.queryAsync(sql, params),
-    );
+    const rows = await this.withTransaction(transaction, (tx) => tx.queryAsync(sql, params));
 
     return this.mapRows(rows);
   }
@@ -111,9 +95,7 @@ export abstract class AbstractRepository<T> extends AbstractSql<T> {
     transaction?: Transaction,
   ): Promise<T[]> {
     const { sql, params } = this.buildDeleteQuery(where);
-    const rows = await this.withTransaction(transaction, (tx) =>
-      tx.queryAsync(sql, params),
-    );
+    const rows = await this.withTransaction(transaction, (tx) => tx.queryAsync(sql, params));
 
     return this.mapRows(rows);
   }
