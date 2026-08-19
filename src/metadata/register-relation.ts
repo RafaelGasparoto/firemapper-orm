@@ -5,9 +5,10 @@ import type { RelationMetadata } from "../interfaces/relation-options.interface"
 const DECORATOR_NAME: Record<RelationMetadata["kind"], string> = {
   belongsTo: "BelongsTo",
   hasOne: "HasOne",
+  hasMany: "HasMany",
 };
 
-/** Usado pelos decorators `@BelongsTo`/`@HasOne` para gravar o relacionamento nos metadados da entidade. */
+/** Usado pelos decorators `@BelongsTo`/`@HasOne`/`@HasMany` para gravar o relacionamento nos metadados da entidade. */
 export function registerRelation(constructor: Function, relation: RelationMetadata) {
   const relations: RelationMetadata[] =
     Reflect.getMetadata(RELATION_METADATA_KEY, constructor) || [];
