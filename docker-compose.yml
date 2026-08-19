@@ -1,0 +1,18 @@
+services:
+  firebird:
+    image: firebirdsql/firebird:5.0.4
+    container_name: firemapper-firebird
+    restart: unless-stopped
+    environment:
+      FIREBIRD_ROOT_PASSWORD: ${FIREBIRD_PASSWORD:-masterkey}
+      FIREBIRD_USER: ${FIREBIRD_EXTRA_USER:-}
+      FIREBIRD_PASSWORD: ${FIREBIRD_EXTRA_PASSWORD:-}
+      FIREBIRD_DATABASE: ${FIREBIRD_DATABASE_FILE:-firemapper.fdb}
+      FIREBIRD_DATABASE_DEFAULT_CHARSET: UTF8
+    ports:
+      - "${FIREBIRD_PORT:-3050}:3050"
+    volumes:
+      - firebird_data:/var/lib/firebird/data
+
+volumes:
+  firebird_data:
